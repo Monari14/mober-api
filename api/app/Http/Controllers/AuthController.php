@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -19,7 +19,6 @@ class AuthController extends Controller
             'email'    => 'required|string|email|unique:users,email',
             'password' => 'required|string|min:6',
             'avatar'   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-            'bio'      => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -33,6 +32,8 @@ class AuthController extends Controller
 
         if ($request->hasFile('avatar')) {
             $avatarPath = $request->file('avatar')->store('a', 'public');
+        }else{
+            $avatarPath = 'i/avatar-default.png';
         }
 
         $user = User::create([
@@ -41,7 +42,6 @@ class AuthController extends Controller
             'email'    => $request->email,
             'password' => Hash::make($request->password),
             'avatar'   => $avatarPath,
-            'bio'      => $request->bio,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -55,52 +55,38 @@ class AuthController extends Controller
     // Login de usuário
     public function login(Request $request)
     {
-        // Validação dos campos de entrada
         $validator = Validator::make($request->all(), [
-            'login'    => 'required|string',
+            'login' => 'required|string',
             'password' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Erro de validação.',
-                'errors'  => $validator->errors(),
+                'status' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        $login = $request->login;
-        $field = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $login_type = filter_var($request->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
 
-        $user = User::where($field, $login)->first();
+        $user = User::where($login_type, $request->login)->first();
 
-        if (! $user) {
+        if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
-                'message' => 'Usuário não encontrado.',
-                'errors'  => [
-                    'login' => ['Não encontramos um usuário com esse ' . ($field === 'email' ? 'e-mail' : 'nome de usuário') . '.'],
-                ],
+                'status' => false,
+                'message' => 'Email/Username or Password does not match.',
             ], 401);
         }
 
-        if (! Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Senha incorreta.',
-                'errors'  => [
-                    'password' => ['A senha fornecida está incorreta.'],
-                ],
-            ], 401);
-        }
-
-        // Gera o token
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // Oculta a senha do retorno
-        $user->makeHidden(['password', 'remember_token']);
+        $token = $user->createToken('LOGIN TOKEN')->plainTextToken;
 
         return response()->json([
-            'user'  => $user,
-            'token' => $token,
-        ]);
+            'status'       => true,
+            'message'      => 'User Logged In Successfully',
+            'access_token' => $token,
+            'user'         => $user->only(['id', 'name', 'username', 'email', 'avatar']),
+        ], 200);
     }
 
     // Logout (revogar token atual)

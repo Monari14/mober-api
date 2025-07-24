@@ -21,7 +21,6 @@ class User extends Authenticatable
         'email',
         'password',
         'avatar',
-        'bio',
     ];
 
     /**
@@ -61,16 +60,6 @@ class User extends Authenticatable
         if ($this->avatar && file_exists(storage_path('app/public/' . $this->avatar))) {
             return asset('s/' . $this->avatar);
         }
-
-        // Caminho para a imagem padrão (deve existir em public/images/avatar-default.png)
         return asset('i/avatar-default.png');
-    }
-
-    /**
-     * Mutator para garantir que a senha seja sempre criptografada.
-     */
-    public function setPasswordAttribute($password)
-    {
-        $this->attributes['password'] = bcrypt($password);
     }
 }

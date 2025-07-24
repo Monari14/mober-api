@@ -17,7 +17,7 @@ Route::prefix('v1')->group(function () {
 
         // Momentos CRUD, POST agora aceita fotos no mesmo request
         Route::get('/momentos', [MomentoController::class, 'index']);
-        Route::post('/momentos', [MomentoController::class, 'store']);  // aqui fotos já entram junto
+        Route::post('/momentos', [MomentoController::class, 'store']);
         Route::put('/momentos/{id}', [MomentoController::class, 'update']);
         Route::delete('/momentos/{id}', [MomentoController::class, 'destroy']);
 
