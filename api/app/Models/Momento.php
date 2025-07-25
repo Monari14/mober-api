@@ -7,13 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 class Momento extends Model
 {
     protected $fillable = [
-        'titulo',
         'descricao',
-        'data',
-        'sentimento',
-        'local',
-        'visibilidade',
     ];
+
+    protected $appends = ['foto_url'];
 
     // Relacionamento: um momento tem muitas fotos
     public function fotos()
@@ -25,5 +22,12 @@ class Momento extends Model
     public function usuario()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function getFotoUrlAttribute()
+    {
+        if ($this->caminho_arquivo && file_exists(storage_path('app/public/' . $this->caminho_arquivo))) {
+            return asset('s/' . $this->caminho_arquivo);
+        }
     }
 }

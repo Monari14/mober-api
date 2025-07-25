@@ -47,7 +47,13 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'  => $user,
+            'user'  => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'email'    => $user->email,
+                'avatar'   => $user->avatar_url,
+            ],
             'token' => $token,
         ], 201);
     }
@@ -82,10 +88,10 @@ class AuthController extends Controller
         $token = $user->createToken('LOGIN TOKEN')->plainTextToken;
 
         return response()->json([
+            'user'         => $user,
             'status'       => true,
             'message'      => 'User Logged In Successfully',
             'access_token' => $token,
-            'user'         => $user->only(['id', 'name', 'username', 'email', 'avatar']),
         ], 200);
     }
 
@@ -102,6 +108,13 @@ class AuthController extends Controller
     // Retorna informações do usuário autenticado
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        $user = Auth::user();
+
+        return response()->json(['user' => [
+            'id'       => $user->id,
+            'name'     => $user->name,
+            'username' => $user->username,
+            'avatar'   => $user->avatar_url,
+        ]]);
     }
 }

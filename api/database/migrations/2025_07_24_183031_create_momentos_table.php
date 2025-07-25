@@ -14,12 +14,7 @@ return new class extends Migration
         Schema::create('momentos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('titulo');
             $table->text('descricao')->nullable();
-            $table->date('data');
-            $table->string('sentimento')->nullable();
-            $table->string('local')->nullable();
-            $table->string('visibilidade')->default('privado');
             $table->timestamps();
         });
     }

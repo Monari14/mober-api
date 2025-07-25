@@ -13,51 +13,81 @@ class MomentoController extends Controller
     {
         $momentos = Momento::with('fotos')
             ->where('user_id', auth()->id())
-            ->orderBy('data', 'desc')
+            ->latest('created_at')
             ->get();
 
-        return response()->json($momentos);
+        return response()->json(['momentos' => [
+            'id' => $momentos->pluck('id'),
+            'descricao' => $momentos->pluck('descricao'),
+            'fotos' => $momentos->pluck('fotos')->map(function ($foto) {
+                return [
+                    'id' => $foto->pluck('id'),
+                    'url' => $foto->pluck('foto_url'),
+                ];
+            }),
+        ]]);
     }
 
     // Cria um momento e faz upload das fotos
     public function store(Request $request)
     {
-        $request->validate([
-            'titulo' => 'required|string|max:255',
-            'descricao' => 'nullable|string',
-            'data' => 'required|date',
-            'sentimento' => 'nullable|string|max:50',
-            'local' => 'nullable|string|max:255',
-            'fotos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
-        ]);
-
-        $momento = new Momento();
-        $momento->user_id = auth()->id();
-        $momento->titulo = $request->titulo;
-        $momento->descricao = $request->descricao;
-        $momento->data = $request->data;
-        $momento->sentimento = $request->sentimento;
-        $momento->local = $request->local;
-        $momento->save();
-
-        // Upload fotos
-        if ($request->hasFile('fotos')) {
-            foreach ($request->file('fotos') as $foto) {
-                $caminho = $foto->store("momentos/{$momento->id}", 'public');
-                $momento->fotos()->create([
-                    'caminho_arquivo' => $caminho,
-                ]);
+        try {
+            // Verifica se o usuário está autenticado
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['erro' => 'Usuário não autenticado.'], 401);
             }
+
+            // Validação dos dados recebidos
+            $validated = $request->validate([
+                'descricao' => 'nullable|string',
+                'fotos' => 'nullable|array',
+                'fotos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            ]);
+
+            // Criação do momento
+            $momento = new Momento();
+            $momento->user_id = $user->id;
+            $momento->descricao = $validated['descricao'] ?? null;
+            $momento->save();
+
+            // Upload e associação das fotos, se houver
+            if ($request->hasFile('fotos')) {
+                foreach ($request->file('fotos') as $foto) {
+                    if ($foto->isValid()) {
+                        $caminho = $foto->store("m", 'public');
+                        $momento->fotos()->create([
+                            'caminho_arquivo' => $caminho,
+                        ]);
+                    } else {
+                        return response()->json(['erro' => 'Uma das fotos é inválida.'], 422);
+                    }
+                }
+            }
+
+            // Carrega fotos associadas
+            $momento->load('fotos');
+
+            // Resposta de sucesso
+            return response()->json([
+                'mensagem' => 'Momento criado com sucesso!',
+                'momento' => $momento
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'erro' => 'Erro de validação.',
+                'detalhes' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'erro' => 'Erro inesperado ao criar momento.',
+                'mensagem' => $e->getMessage()
+            ], 500);
         }
-
-        // Carregar fotos no momento para retornar
-        $momento->load('fotos');
-
-        return response()->json([
-            'mensagem' => 'Momento criado com sucesso!',
-            'momento' => $momento
-        ], 201);
     }
+
 
     // Mostrar detalhes de um momento (com fotos)
     public function show($id)
@@ -123,21 +153,5 @@ class MomentoController extends Controller
         $momento->delete();
 
         return response()->json(['mensagem' => 'Momento removido com sucesso!']);
-    }
-
-    public function publicosPorUsuario($usuarioId)
-    {
-        // Buscar momentos do usuário com filtro de visibilidade pública
-        $momentos = Momento::with('fotos')
-            ->where('user_id', $usuarioId)
-            ->where('visibilidade', 'publico') // assumindo campo visibilidade
-            ->orderBy('data', 'desc')
-            ->get();
-
-        if ($momentos->isEmpty()) {
-            return response()->json(['mensagem' => 'Nenhum momento público encontrado para este usuário.'], 404);
-        }
-
-        return response()->json($momentos);
     }
 }

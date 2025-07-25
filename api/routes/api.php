@@ -25,8 +25,4 @@ Route::prefix('v1')->group(function () {
         Route::get('/momentos/{id}/fotos', [FotoController::class, 'index']);
         Route::delete('/fotos/{id}', [FotoController::class, 'destroy']);
     });
-
-    // Opcional: rotas públicas para ver momentos públicos de um usuário
-    Route::get('/usuarios/{id}/momentos', [MomentoController::class, 'publicosPorUsuario']);
-    Route::get('/momentos/{id}', [MomentoController::class, 'show']);
 });
