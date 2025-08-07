@@ -71,7 +71,16 @@ class MomentoController extends Controller
             // Resposta de sucesso
             return response()->json([
                 'mensagem' => 'Momento criado com sucesso!',
-                'momento' => $momento
+                'momento' => [
+                    'id' => $momento->id,
+                    'descricao' => $momento->descricao,
+                    'imagens' => $momento->fotos->map(function ($foto) {
+                        return [
+                            'id' => $foto->id,
+                            'url' => asset('s/' . $foto->caminho_arquivo),
+                        ];
+                    })
+                ],
             ], 201);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
