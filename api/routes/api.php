@@ -12,7 +12,11 @@ Route::prefix('v1')->group(function () {
 
     // Rotas protegidas com Sanctum
     Route::middleware('auth:sanctum')->group(function () {
+
         Route::get('/user', [AuthController::class, 'user']);
+        Route::put('/user', [AuthController::class, 'update']);
+        Route::delete('/user', [AuthController::class, 'destroy']);
+
         Route::post('/logout', [AuthController::class, 'logout']);
 
         // Momentos CRUD, POST agora aceita fotos no mesmo request
@@ -20,9 +24,5 @@ Route::prefix('v1')->group(function () {
         Route::post('/momentos', [MomentoController::class, 'store']);
         Route::put('/momentos/{id}', [MomentoController::class, 'update']);
         Route::delete('/momentos/{id}', [MomentoController::class, 'destroy']);
-
-        // Fotos — apenas para listar e excluir fotos específicas se desejar
-        Route::get('/momentos/{id}/fotos', [FotoController::class, 'index']);
-        Route::delete('/fotos/{id}', [FotoController::class, 'destroy']);
     });
 });

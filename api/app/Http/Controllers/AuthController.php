@@ -49,10 +49,7 @@ class AuthController extends Controller
         return response()->json([
             'user'  => [
                 'id'       => $user->id,
-                'name'     => $user->name,
                 'username' => $user->username,
-                'email'    => $user->email,
-                'avatar'   => $user->avatar_url,
             ],
             'token' => $token,
         ], 201);
@@ -88,10 +85,11 @@ class AuthController extends Controller
         $token = $user->createToken('LOGIN TOKEN')->plainTextToken;
 
         return response()->json([
-            'user'         => $user,
-            'status'       => true,
-            'message'      => 'User Logged In Successfully',
-            'access_token' => $token,
+            'user'  => [
+                'id'       => $user->id,
+                'username' => $user->username,
+            ],
+            'token' => $token,
         ], 200);
     }
 
@@ -110,11 +108,62 @@ class AuthController extends Controller
     {
         $user = Auth::user();
 
-        return response()->json(['user' => [
-            'id'       => $user->id,
-            'name'     => $user->name,
-            'username' => $user->username,
-            'avatar'   => $user->avatar_url,
-        ]]);
+        return response()->json([
+            'user' => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'bio' => $user->bio,
+                'avatar'   => $user->avatar_url,
+            ]
+        ]);
+    }
+
+    public function update(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            'name'     => 'sometimes|string|max:255',
+            'username' => 'sometimes|string|max:30|unique:users,username,' . $user->id,
+            'email'    => 'sometimes|string|email|unique:users,email,' . $user->id,
+            'bio'      => 'nullable|string|max:500',
+            'avatar'   => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erro de validação.',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        if ($request->hasFile('avatar')) {
+            $avatarPath = $request->file('avatar')->store('a', 'public');
+            $user->avatar = $avatarPath;
+        }
+
+        $user->update($request->only(['name', 'username', 'email', 'bio', 'avatar']));
+
+        return response()->json([
+            'message' => 'Usuário atualizado com sucesso.',
+            'user'    => [
+                'id'       => $user->id,
+                'name'     => $user->name,
+                'username' => $user->username,
+                'bio'      => $user->bio,
+                'avatar'   => $user->avatar_url,
+            ],
+        ]);
+    }
+
+    public function destroy(Request $request)
+    {
+        $user = Auth::user();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Usuário excluído com sucesso.',
+        ]);
     }
 }
