@@ -20,7 +20,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
 
         // Momentos CRUD, POST agora aceita fotos no mesmo request
-        Route::get('/momentos', [MomentoController::class, 'index']);
+        Route::get('/user/momentos', [MomentoController::class, 'index']);
         Route::post('/momentos', [MomentoController::class, 'store']);
         Route::put('/momentos/{id}', [MomentoController::class, 'update']);
         Route::delete('/momentos/{id}', [MomentoController::class, 'destroy']);

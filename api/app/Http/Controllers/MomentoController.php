@@ -16,16 +16,20 @@ class MomentoController extends Controller
             ->latest('created_at')
             ->get();
 
-        return response()->json(['momentos' => [
-            'id' => $momentos->pluck('id'),
-            'descricao' => $momentos->pluck('descricao'),
-            'fotos' => $momentos->pluck('fotos')->map(function ($foto) {
-                return [
-                    'id' => $foto->pluck('id'),
-                    'url' => $foto->pluck('foto_url'),
-                ];
-            }),
-        ]]);
+        $momentosFormatados = $momentos->map(function ($momento) {
+            return [
+                'id' => $momento->id,
+                'descricao' => $momento->descricao,
+                'fotos' => $momento->fotos->map(function ($foto) {
+                    return [
+                        'id' => $foto->id,
+                        'foto_url' => $foto->foto_url,
+                    ];
+                }),
+            ];
+        });
+
+        return response()->json(['momentos' => $momentosFormatados]);
     }
 
     // Cria um momento e faz upload das fotos
@@ -77,7 +81,7 @@ class MomentoController extends Controller
                     'imagens' => $momento->fotos->map(function ($foto) {
                         return [
                             'id' => $foto->id,
-                            'url' => asset('s/' . $foto->caminho_arquivo),
+                            'foto_url' => $foto->foto_url,
                         ];
                     })
                 ],
