@@ -47,6 +47,11 @@ class User extends Authenticatable
         return $this->hasOne(UserSettings::class);
     }
 
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
     public function momentos()
     {
         return $this->hasMany(Momento::class);

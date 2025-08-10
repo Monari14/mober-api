@@ -9,6 +9,7 @@ use App\Notifications\MomentoCommented;
 
 class CommentController extends Controller
 {
+
     public function store(Request $request, $momentoId)
     {
         $request->validate([
@@ -18,7 +19,10 @@ class CommentController extends Controller
         $momento = Momento::find($momentoId);
 
         if (!$momento) {
-            return response()->json(['message' => 'Mober não encontrado.'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mober não encontrado.',
+            ], 404);
         }
 
         $comment = Comment::create([
@@ -28,12 +32,25 @@ class CommentController extends Controller
         ]);
 
         // Notifica que o post foi comentado
-        $momento->user->notify(new MomentoCommented($request->user(), $momento->id));
+        $momento->usuario->notify(new MomentoCommented($request->user(), $momento->id));
+
+        // Carrega o relacionamento do usuário para já retornar junto
+        $comment->load('user:id,username,avatar');
 
         return response()->json([
+            'status' => 'success',
             'message' => 'Comentário adicionado com sucesso!',
-            'comment' => $comment->load('user:id,username'),
-        ]);
+            'data' => [
+                'id' => $comment->id,
+                'content' => $comment->content,
+                'created_at' => $comment->created_at->diffForHumans(),
+                'user' => [
+                    'id' => $comment->user->id,
+                    'username' => $comment->user->username,
+                    'avatar_url' => $comment->user->avatar_url
+                ]
+            ]
+        ], 201);
     }
 
     public function index($momentoId)
@@ -41,12 +58,34 @@ class CommentController extends Controller
         $momento = Momento::find($momentoId);
 
         if (!$momento) {
-            return response()->json(['message' => 'Mober não encontrado.'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Mober não encontrado.',
+            ], 404);
         }
 
-        $comments = $momento->comments()->with('user:id,username')->latest()->get();
+        $comments = $momento->comments()
+            ->with('user:id,username,avatar')
+            ->latest()
+            ->get()
+            ->map(function ($comment) {
+                return [
+                    'id' => $comment->id,
+                    'content' => $comment->content,
+                    'created_at' => $comment->created_at->diffForHumans(),
+                    'user' => [
+                        'id' => $comment->user->id,
+                        'username' => $comment->user->username,
+                        'avatar_url' => $comment->user->avatar_url
+                    ]
+                ];
+            });
 
-        return response()->json($comments);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Comentários carregados com sucesso.',
+            'data' => $comments
+        ], 200);
     }
 
     public function destroy(Request $request, $commentId)
@@ -54,15 +93,25 @@ class CommentController extends Controller
         $comment = Comment::find($commentId);
 
         if (!$comment) {
-            return response()->json(['message' => 'Comentário não encontrado.'], 404);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Comentário não encontrado.',
+            ], 404);
         }
 
         if ($comment->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Não autorizado.'], 403);
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Não autorizado.',
+            ], 403);
         }
 
         $comment->delete();
 
-        return response()->json(['message' => 'Comentário deletado com sucesso.']);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Comentário deletado com sucesso.',
+        ], 200);
     }
+
 }

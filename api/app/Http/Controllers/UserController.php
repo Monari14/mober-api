@@ -86,7 +86,14 @@ class UserController extends Controller
 
     public function notifications(Request $request)
     {
-        return response()->json($request->user()->notifications()->paginate(20));
+        $notifications = $request->user()->notifications()->paginate(20);
+        return response()->json([
+            'notifications' => [
+                'id' => $notifications->pluck('id'),
+                'data' => $notifications->pluck('data'),
+                'read_at' => $notifications->pluck('read_at'),
+            ],
+        ]);
     }
 
     public function markNotificationAsRead(Request $request, $notificationId)

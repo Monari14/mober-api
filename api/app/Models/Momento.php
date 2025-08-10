@@ -18,6 +18,11 @@ class Momento extends Model
         return $this->hasMany(Like::class);
     }
 
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
     // Relacionamento: um momento tem muitas fotos
     public function fotos()
     {

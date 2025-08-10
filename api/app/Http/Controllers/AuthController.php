@@ -108,13 +108,26 @@ class AuthController extends Controller
     {
         $user = Auth::user();
 
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Usuário não autenticado.'
+            ], 401);
+        }
+
+        if($user->bio == null){
+            $user->bio = '';
+        }
+
         return response()->json([
-            'user' => [
-                'id'       => $user->id,
-                'name'     => $user->name,
-                'username' => $user->username,
-                'bio' => $user->bio,
-                'avatar'   => $user->avatar_url,
+            'status' => 'success',
+            'data'   => [
+                'id'        => $user->id,
+                'name'      => $user->name,
+                'username'  => $user->username,
+                'bio'       => $user->bio,
+                'avatar'    => $user->avatar_url,
+                'created_at'=> $user->created_at->toIso8601String(),
             ]
         ]);
     }
@@ -122,6 +135,12 @@ class AuthController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Usuário não autenticado.'
+            ], 401);
+        }
 
         $validator = Validator::make($request->all(), [
             'name'     => 'sometimes|string|max:255',
@@ -138,19 +157,29 @@ class AuthController extends Controller
             ], 422);
         }
 
+        $fields = ['name', 'username', 'email', 'bio'];
+
+        foreach ($fields as $field) {
+            if ($request->has($field)) {
+                $user->$field = $request->input($field);
+            }
+        }
+
         if ($request->hasFile('avatar')) {
             $avatarPath = $request->file('avatar')->store('a', 'public');
             $user->avatar = $avatarPath;
         }
 
-        $user->update($request->only(['name', 'username', 'email', 'bio', 'avatar']));
+        $user->save();
 
         return response()->json([
+            'success' => true,
             'message' => 'Usuário atualizado com sucesso.',
-            'user'    => [
+            'data' => [
                 'id'       => $user->id,
                 'name'     => $user->name,
                 'username' => $user->username,
+                'email'    => $user->email,
                 'bio'      => $user->bio,
                 'avatar'   => $user->avatar_url,
             ],

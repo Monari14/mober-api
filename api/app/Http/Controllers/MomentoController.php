@@ -116,58 +116,117 @@ class MomentoController extends Controller
         return response()->json($momento);
     }
 
-    // Atualizar dados do momento (sem fotos aqui)
+    // Atualizar dados do momento (com tratamento igual ao store)
     public function update(Request $request, $id)
     {
-        $momento = Momento::findOrFail($id);
+        try {
+            // Verifica autenticação
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['erro' => 'Usuário não autenticado.'], 401);
+            }
 
-        if ($momento->user_id !== auth()->id()) {
-            return response()->json(['erro' => 'Acesso negado'], 403);
+            // Busca o momento
+            $momento = Momento::findOrFail($id);
+
+            // Verifica se pertence ao usuário
+            if ($momento->user_id !== $user->id) {
+                return response()->json(['erro' => 'Acesso negado'], 403);
+            }
+
+            // Validação
+            $validated = $request->validate([
+                'descricao' => 'nullable|string',
+                'fotos' => 'nullable|array',
+                'fotos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
+            ]);
+
+            // Atualiza descrição
+            $momento->descricao = $validated['descricao'] ?? $momento->descricao;
+            $momento->save();
+
+            // Upload de novas fotos (se houver)
+            if ($request->hasFile('fotos')) {
+                foreach ($request->file('fotos') as $foto) {
+                    if ($foto->isValid()) {
+                        $caminho = $foto->store("m", 'public');
+                        $momento->fotos()->create([
+                            'caminho_arquivo' => $caminho,
+                        ]);
+                    } else {
+                        return response()->json(['erro' => 'Uma das fotos é inválida.'], 422);
+                    }
+                }
+            }
+
+            // Retorna atualizado
+            $momento->load('fotos');
+
+            return response()->json([
+                'mensagem' => 'Momento atualizado com sucesso!',
+                'momento' => [
+                    'id' => $momento->id,
+                    'descricao' => $momento->descricao,
+                    'imagens' => $momento->fotos->map(fn($foto) => [
+                        'id' => $foto->id,
+                        'foto_url' => $foto->foto_url,
+                    ]),
+                ],
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'erro' => 'Erro de validação.',
+                'detalhes' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'erro' => 'Erro inesperado ao atualizar momento.',
+                'mensagem' => $e->getMessage()
+            ], 500);
         }
-
-        $request->validate([
-            'titulo' => 'sometimes|required|string|max:255',
-            'descricao' => 'nullable|string',
-            'data' => 'sometimes|required|date',
-            'sentimento' => 'nullable|string|max:50',
-            'local' => 'nullable|string|max:255',
-        ]);
-
-        $momento->fill($request->only([
-            'titulo',
-            'descricao',
-            'data',
-            'sentimento',
-            'local',
-        ]));
-
-        $momento->save();
-
-        return response()->json([
-            'mensagem' => 'Mober atualizado com sucesso!',
-            'mober' => $momento
-        ]);
     }
 
-    // Deletar momento e suas fotos
+    // Deletar momento e fotos (com tratamento igual ao store)
     public function destroy($id)
     {
-        $momento = Momento::with('fotos')->findOrFail($id);
+        try {
+            // Verifica autenticação
+            $user = auth()->user();
+            if (!$user) {
+                return response()->json(['erro' => 'Usuário não autenticado.'], 401);
+            }
 
-        if ($momento->user_id !== auth()->id()) {
-            return response()->json(['erro' => 'Acesso negado'], 403);
+            // Busca o momento
+            $momento = Momento::with('fotos')->findOrFail($id);
+
+            // Verifica se pertence ao usuário
+            if ($momento->user_id !== $user->id) {
+                return response()->json(['erro' => 'Acesso negado'], 403);
+            }
+
+            // Apaga fotos do storage
+            foreach ($momento->fotos as $foto) {
+                Storage::disk('public')->delete($foto->caminho_arquivo);
+                $foto->delete();
+            }
+
+            // Apaga o momento
+            $momento->delete();
+
+            return response()->json([
+                'mensagem' => 'Momento removido com sucesso!'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'erro' => 'Erro inesperado ao remover momento.',
+                'mensagem' => $e->getMessage()
+            ], 500);
         }
-
-        // Apagar fotos do storage
-        foreach ($momento->fotos as $foto) {
-            Storage::disk('public')->delete($foto->caminho_arquivo);
-            $foto->delete();
-        }
-
-        $momento->delete();
-
-        return response()->json(['mensagem' => 'Mober removido com sucesso!']);
     }
+
 
     public function like(Request $request, $postId)
     {
@@ -187,7 +246,7 @@ class MomentoController extends Controller
         ]);
 
         // Notifica o like
-        $momento->user->notify(new MomentoLiked($request->user(), $momento->id));
+        $momento->usuario->notify(new MomentoLiked($request->user(), $momento->id));
 
         return response()->json(['message' => 'Mober curtido!']);
     }
