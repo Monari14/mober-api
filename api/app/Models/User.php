@@ -12,9 +12,6 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    /**
-     * Os atributos que podem ser atribuídos em massa.
-     */
     protected $fillable = [
         'name',
         'username',
@@ -24,38 +21,37 @@ class User extends Authenticatable
         'avatar',
     ];
 
-    /**
-     * Atributos ocultos nos arrays e JSONs.
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Casts para atributos do modelo.
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
 
-    /**
-     * Campos adicionais a serem incluídos no JSON automaticamente.
-     */
     protected $appends = ['avatar_url'];
 
-    /**
-     * Relacionamento: um usuário tem muitos momentos.
-     */
+    public function followers()
+    {
+        return $this->hasMany(Follower::class, 'following_id');
+    }
+
+    public function following()
+    {
+        return $this->hasMany(Follower::class, 'follower_id');
+    }
+
+    public function settings()
+    {
+        return $this->hasOne(UserSettings::class);
+    }
+
     public function momentos()
     {
         return $this->hasMany(Momento::class);
     }
 
-    /**
-     * Accessor para a URL do avatar do usuário.
-     * Retorna o caminho da imagem enviada ou a imagem padrão.
-     */
     public function getAvatarUrlAttribute()
     {
         if ($this->avatar && file_exists(storage_path('app/public/' . $this->avatar))) {

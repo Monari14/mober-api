@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Momento;
+use App\Notifications\MomentoLiked;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -143,8 +144,8 @@ class MomentoController extends Controller
         $momento->save();
 
         return response()->json([
-            'mensagem' => 'Momento atualizado com sucesso!',
-            'momento' => $momento
+            'mensagem' => 'Mober atualizado com sucesso!',
+            'mober' => $momento
         ]);
     }
 
@@ -165,6 +166,47 @@ class MomentoController extends Controller
 
         $momento->delete();
 
-        return response()->json(['mensagem' => 'Momento removido com sucesso!']);
+        return response()->json(['mensagem' => 'Mober removido com sucesso!']);
+    }
+
+    public function like(Request $request, $postId)
+    {
+        $momento = Momento::find($postId);
+        if (!$momento) {
+            return response()->json(['message' => 'Mober não encontrado.'], 404);
+        }
+
+        $alreadyLiked = $momento->likes()->where('user_id', $request->user()->id)->exists();
+
+        if ($alreadyLiked) {
+            return response()->json(['message' => 'Você já curtiu este mober.'], 400);
+        }
+
+        $momento->likes()->create([
+            'user_id' => $request->user()->id,
+        ]);
+
+        // Notifica o like
+        $momento->user->notify(new MomentoLiked($request->user(), $momento->id));
+
+        return response()->json(['message' => 'Mober curtido!']);
+    }
+
+    public function unlike(Request $request, $postId)
+    {
+        $momento = Momento::find($postId);
+        if (!$momento) {
+            return response()->json(['message' => 'Mober não encontrado.'], 404);
+        }
+
+        $like = $momento->likes()->where('user_id', $request->user()->id)->first();
+
+        if (!$like) {
+            return response()->json(['message' => 'Você não curtiu este mober.'], 400);
+        }
+
+        $like->delete();
+
+        return response()->json(['message' => 'Curtida removida.']);
     }
 }

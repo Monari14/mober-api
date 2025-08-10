@@ -12,6 +12,12 @@ class Momento extends Model
 
     protected $appends = ['foto_url'];
 
+    // Relacionamento: um momento tem muitos likes
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
     // Relacionamento: um momento tem muitas fotos
     public function fotos()
     {
