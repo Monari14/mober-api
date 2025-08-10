@@ -9,7 +9,7 @@
       <nav class="nav-menu">
         <ul>
           <li class="nav-item">
-            <a href="#">
+            <a href="/">
               <div class="icon-container home-icon"></div>
               <span>Página inicial</span>
             </a>

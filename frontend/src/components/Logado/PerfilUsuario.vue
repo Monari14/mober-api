@@ -30,9 +30,8 @@
                   <h2 class="name">{{ usuario.nome || 'Usuário' }}</h2>
                   <p class="bio" v-if="usuario.bio">{{ usuario.bio }}</p>
                 </div>
-
                 <div class="profile-actions">
-                  <!-- Botão dinâmico -->
+                  <!-- Botão seguir só aparece se não for meu perfil -->
                   <button
                     v-if="isMeuPerfil"
                     class="action-button follow-button"
@@ -43,12 +42,12 @@
                   <button
                     v-else
                     class="action-button follow-button"
+                    :class="{ following: isFollowing }"
                     @click="toggleFollow"
                   >
                     {{ isFollowing ? 'Unfollow' : 'Follow' }}
                   </button>
 
-                  <!-- Botão de opções -->
                   <button class="action-button more-button">
                     <div class="dots-sketch"></div>
                   </button>
@@ -57,28 +56,27 @@
 
               <div class="stats">
                 <div class="stat">
-                  <span class="stat-number">
-                    {{ usuario.stats?.mober_count ?? 0 }}
-                  </span>
+                  <span class="stat-number">{{
+                    usuario.stats?.mober_count ?? 0
+                  }}</span>
                   <span class="stat-label">mobers</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-number">
-                    {{ usuario.stats?.seguidores ?? 0 }}
-                  </span>
+                  <span class="stat-number">{{
+                    usuario.stats?.seguidores ?? 0
+                  }}</span>
                   <span class="stat-label">seguidores</span>
                 </div>
                 <div class="stat">
-                  <span class="stat-number">
-                    {{ usuario.stats?.seguindo ?? 0 }}
-                  </span>
+                  <span class="stat-number">{{
+                    usuario.stats?.seguindo ?? 0
+                  }}</span>
                   <span class="stat-label">seguindo</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Grade de momentos -->
           <div
             class="moments-grid masonry"
             v-if="dados.momentos && dados.momentos.length > 0"
@@ -119,7 +117,18 @@ import {
 const route = useRoute();
 
 const meuUsuario = ref(null);
-const usuario = ref({});
+const usuario = ref({
+  nome: '',
+  username: '',
+  bio: '',
+  avatar_url: '',
+  stats: {
+    seguindo: 0,
+    seguidores: 0,
+    mober_count: 0,
+    likes_count: 0,
+  }
+});
 const dados = ref({ momentos: [] });
 const loading = ref(false);
 const error = ref(null);
@@ -131,54 +140,68 @@ onMounted(async () => {
   error.value = null;
 
   try {
-    // 1 - Buscar meu usuário logado
+    // Buscar dados do usuário autenticado
     const myData = await getMyUserData();
     meuUsuario.value = myData.usuario;
-    // dados dos momentos do meu usuário
     dados.value = { momentos: myData.momentos || [] };
 
     const username = route.params.username;
 
     if (!username || username === meuUsuario.value.username) {
-      // Mostrar meu perfil
+      // Exibir o próprio perfil
       usuario.value = meuUsuario.value;
       isMeuPerfil.value = true;
+      isFollowing.value = false; // não faz sentido seguir você mesmo
     } else {
-      // Buscar perfil de outro usuário
+      // Exibir perfil de outro usuário
       const perfilData = await getUserByUsername(username);
-      usuario.value = perfilData.usuario;
-      dados.value = { momentos: perfilData.momentos || [] };
+
+      // Caso a API retorne a estrutura dentro de `dados`
+      if (perfilData.dados) {
+        usuario.value = perfilData.dados.usuario || {};
+        dados.value = { momentos: perfilData.dados.momentos || [] };
+      } else {
+        // fallback se API retornar diferente
+        usuario.value = perfilData.usuario || {};
+        dados.value = { momentos: perfilData.momentos || [] };
+      }
+
       isMeuPerfil.value = false;
 
+      // Verificar se estou seguindo esse usuário
       isFollowing.value = await checkIfFollowing(username);
     }
   } catch (err) {
-    error.value = err.message || String(err);
+    error.value = err.message || 'Erro ao carregar o perfil';
   } finally {
     loading.value = false;
   }
 });
 
+// Função para alternar follow/unfollow
 const toggleFollow = async () => {
+  console.log('toggleFollow chamado, isFollowing:', isFollowing.value);
+
   try {
     if (isFollowing.value) {
-      await unfollowUser(usuario.value.username);
+      await unfollowUser(encodeURIComponent(usuario.value.username));
       isFollowing.value = false;
+      usuario.value.stats.seguidores = Math.max((usuario.value.stats.seguidores || 1) - 1, 0);
     } else {
-      await followUser(usuario.value.username);
+      await followUser(encodeURIComponent(usuario.value.username));
       isFollowing.value = true;
+      usuario.value.stats.seguidores = (usuario.value.stats.seguidores || 0) + 1;
     }
   } catch (err) {
     console.error('Erro ao seguir/desseguir usuário:', err);
+    alert('Não foi possível atualizar o status de seguir.');
   }
 };
 </script>
 
 <style scoped>
-/* Importando fontes de escrita manual */
 @import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Indie+Flower&display=swap');
 
-/* Variáveis para o estilo sketch */
 :root {
   --color-lilac: #d0bfff;
   --color-border: #2c2c2c;
@@ -189,7 +212,6 @@ const toggleFollow = async () => {
   --spacing-lg: 32px;
 }
 
-/* Estilo geral da página */
 .main-layout {
   display: flex;
   min-height: 100vh;
@@ -211,7 +233,6 @@ const toggleFollow = async () => {
   margin: 0 auto;
 }
 
-/* Transições */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.5s ease;
@@ -221,15 +242,14 @@ const toggleFollow = async () => {
   opacity: 0;
 }
 
-/* Estados de carregamento e erro */
 .loading-state,
 .error-state {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 32px; /* Aumentado de 16px para 32px */
-  height: 500px; /* Aumentado de 400px para 500px */
+  gap: 32px;
+  height: 500px;
   font-size: 1.5rem;
   font-family: 'Indie Flower', cursive;
 }
@@ -246,12 +266,11 @@ const toggleFollow = async () => {
   }
 }
 
-/* Header do perfil */
 .profile-header {
   display: flex;
-  gap: 48px; /* Aumentado de 32px para 48px */
-  margin-bottom: 48px; /* Aumentado de 32px para 48px */
-  padding: 24px; /* Aumentado de 16px para 24px */
+  gap: 48px;
+  margin-bottom: 48px;
+  padding: 24px;
   background-color: var(--color-lilac);
   border-bottom: 2px solid var(--color-border);
   position: relative;
@@ -261,7 +280,7 @@ const toggleFollow = async () => {
   position: relative;
   width: 120px;
   height: 120px;
-  margin-right: 32px; /* Espaçamento extra à direita */
+  margin-right: 32px;
 }
 .avatar-sketch {
   position: absolute;
@@ -299,7 +318,7 @@ const toggleFollow = async () => {
   object-fit: cover;
   display: block;
   z-index: 2;
-  opacity: 0.8; /* Suaviza a foto para o estilo */
+  opacity: 0.8;
 }
 
 .user-info {
@@ -307,7 +326,7 @@ const toggleFollow = async () => {
   flex-direction: column;
   justify-content: flex-start;
   flex-grow: 1;
-  gap: 24px; /* Aumentado de 16px para 24px */
+  gap: 24px;
 }
 
 .user-main-info {
@@ -315,13 +334,13 @@ const toggleFollow = async () => {
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 16px; /* Aumentado de 8px para 16px */
+  gap: 16px;
 }
 
 .profile-details {
   display: flex;
   flex-direction: column;
-  gap: 12px; /* Aumentado de 8px para 12px */
+  gap: 12px;
 }
 
 .username {
@@ -344,7 +363,7 @@ const toggleFollow = async () => {
 
 .profile-actions {
   display: flex;
-  gap: 16px; /* Aumentado de 8px para 16px */
+  gap: 16px;
 }
 .action-button {
   font-family: 'Kalam', cursive;
@@ -360,6 +379,11 @@ const toggleFollow = async () => {
 .follow-button {
   background-color: var(--color-dark-text);
   color: var(--color-bg-light);
+}
+.follow-button.following {
+  background-color: #4caf50; /* verde para "seguindo" */
+  color: white;
+  border-color: #4caf50;
 }
 .more-button {
   width: 45px;
@@ -391,9 +415,9 @@ const toggleFollow = async () => {
 
 .stats {
   display: flex;
-  gap: 48px; /* Aumentado de 32px para 48px */
+  gap: 48px;
   font-size: 1.2rem;
-  margin-top: 32px; /* Aumentado de 16px para 32px */
+  margin-top: 32px;
 }
 .stat {
   display: flex;
@@ -408,12 +432,11 @@ const toggleFollow = async () => {
   color: var(--color-dark-text);
 }
 
-/* Grid de Momentos - Estilo Masonry */
 .moments-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   grid-auto-rows: 1fr;
-  gap: 1px; /* Aumentado de 8px para 16px */
+  gap: 1px;
 }
 .moment-item {
   position: relative;
@@ -441,7 +464,6 @@ const toggleFollow = async () => {
   font-family: 'Indie Flower', cursive;
 }
 
-/* Responsivo */
 @media (max-width: 768px) {
   .profile-main-content {
     padding: var(--spacing-md);
@@ -470,5 +492,4 @@ const toggleFollow = async () => {
     justify-content: center;
   }
 }
-
 </style>

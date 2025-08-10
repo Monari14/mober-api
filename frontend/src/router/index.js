@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/Auth/LoginView.vue'
 import RegisterView from '../views/Auth/RegisterView.vue'
 import PaginaInicial from '../views/Logado/PaginaInicial.vue'
+import PerfilUsuario from '../views/Logado/PerfilUsuario.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,28 +22,30 @@ const router = createRouter({
       name: 'paginaInicial',
       component: PaginaInicial,
     },
+    {
+      path: '/:username',
+      name: 'perfil',
+      component: PerfilUsuario,
+    }
   ],
 })
 
-// Guard global para checar autenticação
+// Guard global
 router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('token');
 
-  // Rotas que não precisam de autenticação
-  const publicPages = ['/login', '/signup']
-  const authNotRequired = publicPages.includes(to.path)
+  // Rotas públicas
+  const publicRouteNames = ['login', 'signup', 'perfil'];
+  const authNotRequired = publicRouteNames.includes(to.name);
 
   if (!token && !authNotRequired) {
-    // Se não tem token e vai para página protegida, manda pro login
-    return next('/login')
+    return next({ name: 'login' });
   }
 
-  if (token && authNotRequired) {
-    // Se tem token e vai para login ou signup, manda pra página inicial
-    return next('/')
+  if (token && (to.name === 'login' || to.name === 'signup')) {
+    return next({ name: 'paginaInicial' });
   }
 
-  next() // segue normalmente
-})
-
+  next();
+});
 export default router
