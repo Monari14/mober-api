@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Momento;
 
 class AuthController extends Controller
 {
@@ -103,6 +104,22 @@ class AuthController extends Controller
         ]);
     }
 
+    public function avatar(Request $request) {
+        $user = Auth::user();
+
+        if (!$user) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Usuário não autenticado.'
+            ], 401);
+        }
+        return response()->json([
+            'usuario' => [
+                'username' => $user->username,
+                'avatar_url' => url($user->avatar_url),
+            ],
+        ]);
+    }
     // Retorna informações do usuário autenticado
     public function user(Request $request)
     {
@@ -115,20 +132,44 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if($user->bio == null){
-            $user->bio = '';
-        }
+        $momentos = Momento::with('fotos')
+            ->where('user_id', $user->id)
+            ->latest('created_at')
+            ->get();
+
+        $momentosFormatados = $momentos->map(function ($momento) {
+            return [
+                'id' => $momento->id,
+                'descricao' => $momento->descricao ?? '',
+                'fotos' => $momento->fotos->map(function ($foto) {
+                    return [
+                        'id' => $foto->id,
+                        'url' => url($foto->foto_url),
+                    ];
+                }),
+                'data_completa' => $momento->created_at->toDateTimeString(),
+                'data' => $momento->created_at->diffForHumans(),
+            ];
+        });
 
         return response()->json([
             'status' => 'success',
-            'data'   => [
-                'id'        => $user->id,
-                'name'      => $user->name,
-                'username'  => $user->username,
-                'bio'       => $user->bio,
-                'avatar'    => $user->avatar_url,
-                'created_at'=> $user->created_at->toIso8601String(),
-            ]
+            'dados' => [
+                'usuario' => [
+                    'id' => $user->id,
+                    'nome' => $user->name,
+                    'username' => $user->username,
+                    'bio' => $user->bio ?? '',
+                    'avatar_url' => url($user->avatar_url),
+                    'stats' => [
+                        'seguindo' => $user->following()->count(),
+                        'seguidores' => $user->followers()->count(),
+                        'mober_count' => $user->momentos()->count(),
+                        'likes_count' => $user->likes()->count(),
+                    ],
+                ],
+                'momentos' => $momentosFormatados,
+            ],
         ]);
     }
 

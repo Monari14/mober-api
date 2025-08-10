@@ -46,7 +46,7 @@ class MomentoController extends Controller
             // Validação dos dados recebidos
             $validated = $request->validate([
                 'descricao' => 'nullable|string',
-                'fotos' => 'nullable|array',
+                'fotos' => 'required|array',
                 'fotos.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:2048',
             ]);
 

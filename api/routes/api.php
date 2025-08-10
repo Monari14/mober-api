@@ -26,6 +26,7 @@ Route::prefix('/v1')->group(function () {
             Route::get('/', [AuthController::class, 'user']);                                        //
             Route::put('/', [AuthController::class, 'update']);                                      //
             Route::delete('/', [AuthController::class, 'destroy']);                                  //
+            Route::get('/avatar', [AuthController::class, 'avatar']);                                //
         });
 
         Route::prefix('/momentos')->group(function () {
